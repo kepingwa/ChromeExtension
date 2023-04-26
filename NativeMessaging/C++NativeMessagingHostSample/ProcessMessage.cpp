@@ -11,26 +11,33 @@
 // 
 // ////////////////////////////////////////////////////////////////////////////
 
+#include "Windows.h" //ExitWindowsEx
+#include <string>
 #include "ProcessMessage.h"
 #include "json\json.h"
-#include "Windows.h" //ExitWindowsEx
-
 // Edit this file to handle more request message from chromium browser
 
-void ProcessMessage(char* jsonMsg)
+void ProcessMessage(char* jsonMsg, std::string& resp)
 {
+	//Todo: parse the request and send the corresponding response
+	/*
 	Json::Value root;   // will contains the root value after parsing.
 	Json::Reader reader;
-	bool parsingSuccessful = reader.parse(jsonMsg, root);
+	bool parsingSuccessful = reader.parse(jsonMsg+4, root);
 	if (!parsingSuccessful)
 	{
 		return;
-	}
+	}*/
 
-	std::string request = root.get("request", "").asString();
-	if (request == "logoff_windows")
-	{
-		ExitWindowsEx(EWX_LOGOFF, 0);
-	}
+	const char* data = "{"
+		"\"cardNumber\":\"4012002000060016\","
+		"\"cardExpiryMonth\":\"12\","
+		"\"cardExpiryYear\":\"2025\","
+		"\"cardHolderName\":\"Jane Yang\","
+		"\"cardHolderGivenName\":\"Jane\","
+		"\"cardHolderFamilyName\":\"Yang\""
+		"}\n";
+
+	resp = data;
 }
 

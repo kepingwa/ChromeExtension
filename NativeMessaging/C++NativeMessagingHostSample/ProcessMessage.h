@@ -15,4 +15,4 @@
 #include "stdafx.h"
 
 // The message has the size header trimed, only contains the message boday.
-void ProcessMessage(char* jsonMsg);
+void ProcessMessage(char* jsonMsg, std::string &resp);

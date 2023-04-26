@@ -20,10 +20,12 @@
 // ////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include <Windows.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include <io.h>
 #include "ProcessMessage.h"
 
@@ -37,6 +39,7 @@ typedef union {
 // to avoid unwanted modifications of the input / output streams.
 int SetBinaryMode(FILE* file)
 {
+	return 0;
 	int result;
 
 	result = _setmode(_fileno(file), _O_BINARY);
@@ -56,18 +59,31 @@ int SetBinaryMode(FILE* file)
 	return 0;
 }
 
+#define DO_LOG(_MESSAGE) fwrite(_MESSAGE, 1, strlen(_MESSAGE), log);
 // main logic
 int _tmain(int argc, _TCHAR* argv[])
 {
+	const char* started = "Started\n";
+	FILE* log = fopen("c:\\tmp\\native.txt", "w");
+	fwrite(started, 1, strlen(started), log);
+
+#if 0
 	if (SetBinaryMode(stdin) != 0)
 	{
+		const char* started = "Bad1\n";
+		DO_LOG("Bad1\n")
+		fclose(log);
 		return -1;
 	}
 	if (SetBinaryMode(stdout) != 0)
 	{
+		DO_LOG("Bad2\n")
+		fclose(log);
 		return -1;
 	}
-				
+#endif
+	fclose(log);
+
 	// The format of raw message received from the stdin
 	// IIIISSSSS...SS
 	// IIII is a 4bytes integer in binary format. It is the lenth of the following json message.
@@ -75,41 +91,76 @@ int _tmain(int argc, _TCHAR* argv[])
 	// Each message is serialized using JSON, UTF-8 encoded and is preceded with 32-bit message length in native byte order.
 	// You can send message back to chromium plugin by writing the same formated IIIISSSSS...SS to stdout.
 
-	size_t iSize = 0;
-	U32_U8 lenBuf;
-	lenBuf.u32 = 0;
-	char* jsonMsg = NULL; // a json message encoded in utf-8 
+	while (1) {
+		log = fopen("c:\\tmp\\native.txt", "a+");
 
-	iSize = fread(lenBuf.u8, 1, 4, stdin);
-	if (iSize == 4)
-	{
-		int iLen = (int)lenBuf.u32;
-		// now read the message
-		if (iLen > 0)
+		size_t iSize = 0;
+		U32_U8 lenBuf;
+		lenBuf.u32 = 0;
+		char* jsonMsg = NULL; // a json message encoded in utf-8 
+		iSize = fread(lenBuf.u8, 1, 4, stdin);
+		if (iSize == 4)
 		{
-			jsonMsg = (char*)malloc(8 * iLen);
-			iSize = fread(jsonMsg, 1, iLen, stdin);
+			DO_LOG("Read size completed\n")
+				int iLen = (int)lenBuf.u32;
+			// now read the message
+			if (iLen > 0)
+			{
+				DO_LOG("Length is valid\n")
+					jsonMsg = (char*)malloc(8 * iLen);
+				iSize = fread(jsonMsg, 1, iLen, stdin);
+				char buf[256];
+				sprintf(buf, "Len: %d\n", iSize);
+				DO_LOG(buf)
+					jsonMsg[iSize] = '\0';
+				DO_LOG(jsonMsg)
+					DO_LOG("\n")
 
-			// process message
-			ProcessMessage(jsonMsg);
+				// process message
+				std::string resp;
+				ProcessMessage(jsonMsg, resp);
 
-			// echo the message
-			fwrite(lenBuf.u8, 1, 4, stdout);
-			fwrite(jsonMsg, 1, iLen, stdout);
-			fflush(stdout);	
+				// echo the message
+				lenBuf.u32 = resp.length();
+				fwrite(lenBuf.u8, 1, 4, stdout);
+				fwrite(resp.c_str(), 1, resp.length(), stdout);
+				fflush(stdout);
+				Sleep(100);
+				sprintf(buf, "Response (%d): %s\n", lenBuf.u32, resp);
+				DO_LOG(buf)
+
+				/*
+				const char* data = "{"
+					"\"cardNumber\":\"4012002000060016\","
+					"\"cardExpiryMonth\":\"12\","
+					"\"cardExpiryYear\":\"2025\","
+					"\"cardHolderName\":\"Jane Yang\","
+					"\"cardHolderGivenName\":\"Jane\","
+					"\"cardHolderFamilyName\":\"Yang\""
+					"}\n";
+				lenBuf.u32 = strlen(data);
+				fwrite(lenBuf.u8, 1, 4, stdout);
+				fwrite(data, 1, lenBuf.u32, stdout);
+				fflush(stdout);
+				Sleep(1000);
+				fflush(stdout);
+				Sleep(1000);
+				fflush(stdout);
+				*/
+			}
+
+			//uncomment it to debug the messaging 
+			/*FILE* log = fopen("D:\\native.txt", "w"); */
+
+			// free resource
+			if (jsonMsg != NULL)
+				free(jsonMsg);
+
+			fclose(log);
 		}
-		
-		
-		//uncomment it to debug the messaging 
-		/*FILE* log = fopen("D:\\native.txt", "w");
-		fwrite((void*)lenBuf.u8, 1, 4, log);
-		fwrite(utf8Buffer, 1, iLen, log);		
-		fclose(log);*/
-		
-
-		// free resource
-		if (jsonMsg != NULL)
-			free(jsonMsg);
+		break;
 	}	
+
+	return 0;
 }
 
